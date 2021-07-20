@@ -103,10 +103,10 @@ Grape15<-path %>%
 ### Extract data from lists and create combined data per subprotocol (e.e.g, herb layer) ----
 
 
-# Extract layer data per year/island and combine into one DF 
+# Extract layer data per year/island and combine into one DF. Also currently removes the notes fields for easier binding (1 or more years without NOtes w/ ID field)
 
-herbs<-bind_rows(Thomp15$`HERB LAYER`,Thomp16$`HERB LAYER`,Thomp17$`HERB LAYER`,Thomp18$`HERB LAYER`,Thomp19$`HERB LAYER`, 
-                 Grape15$`HERB LAYER`,Grape16$`HERB LAYER`,Grape17$`HERB LAYER`,Grape18$`HERB LAYER`,Grape19$`HERB LAYER`) %>% View()
+herbs<-bind_rows(Thomp16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), 
+                 Grape16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note"))) %>% View()
 
 
 scrubs<-bind_rows(Thomp15$`SCRUB LAYER`,Thomp16$`SCRUB LAYER`,Thomp17$`SCRUB LAYER`,Thomp18$`SCRUB LAYER`,Thomp19$`SCRUB LAYER`,
@@ -121,12 +121,21 @@ trees<-bind_rows(Thomp15$`TREE LAYER`,Thomp16$`TREE LAYER`,Thomp17$`TREE LAYER`,
 # 6/24/21: right now there are "-" and 0s in the Density column when Cover > 0. I asked Sahil/Rachel to clarify. I think the "-" should be NAs.
 
 
-########## HERBS ########
-#########################
 
-# for testing df until data are finalized:
-herbs<-bind_rows(Thomp16$`HERB LAYER`,Thomp18$`HERB LAYER`)
-head(herbs)
+########## HERBS ########
+
+## DATA CHECKS: FORMATTING, GROUPING LEVELS, and MISSING VALUES  ########
+
+# for testing df until above data are finalized:
+herbs<-bind_rows(Thomp16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), 
+                 Grape16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")))
+
+#View(herbs)
+
+# inspect herbs object:
+str(herbs)
+
+# Clean up column values (Island and Zone) and Derive new variables from the data set: year, month, Pct_Cover
 
 herbs <-herbs %>% mutate(year= year(Date), month= month(Date)) %>% # extract year and month for later filtering/modelling
   mutate(Pct_Cover = case_when( 
@@ -144,7 +153,8 @@ herbs <-herbs %>% mutate(year= year(Date), month= month(Date)) %>% # extract yea
     TRUE ~ NA_real_)) %>%   # create median cover class for each estimate of Cover: 1= <0.5%;  2 = 0-1%;  3 = 1-2%;  4 = 2-5%;  5 = 5-10%;  6 = 10-25%;  7 = 25-50%;  8 = 50-75%;  9 = 75-95%;  10 = 95-100%
   mutate(Island = case_when(Island == "THOMPSON" ~ "Thompson",
                             Island == "Thompson" ~ "Thompson",
-                            Island == "GRAPE" ~ "Grape")) %>% # rename Islands for consistency
+                            Island == "GRAPE" ~ "Grape",
+                            Island == "Grape" ~ "Grape")) %>% # rename Islands for consistency
   mutate(Zone = case_when(Zone == "U" ~ "Upland",
                           Zone == "W" ~"Wetland",
                           Zone == "Wet" ~"Wetland",
@@ -152,36 +162,124 @@ herbs <-herbs %>% mutate(year= year(Date), month= month(Date)) %>% # extract yea
                           Zone == "WET" ~ "Wetland",
                           Zone == "C" ~ "Control")) # rename zones for consistency
 
-## DATA CHECKS: FORMATTING, GROUPING LEVELS, and MISSING VALUES
 
-## check levels of each column type
-# ZOne
-herb.obs.zones<-herbs %>% dplyr::select(Island,  Zone) %>%
-  group_by(Island,  Zone) %>% 
+
+# check the levels or values of a few fields
+
+unique(herbs$Island)# unique values of island
+unique(herbs$Zone)
+
+# Are there observations at each Island X Zone?
+
+# Zone
+herb.obs.zones<-herbs %>% dplyr::select(Island,  Zone, year) %>%
+  group_by(Island,  Zone, year) %>% 
   distinct() 
+
+View(herb.obs.zones)
+
+# Are there any missing values that need to be addressed:
+
+# in the year column
+herbs[is.na(herbs$year),] %>% View()
+
+# in the Island column
+herbs[is.na(herbs$Island),] %>% View()
 
 # transect X zone
 herb.obs.trans.Zone<-herbs %>% dplyr::select(Island, Transect, Zone) %>%
   group_by(Island, Transect,  Zone) %>% 
-  distinct()
+  distinct() 
+
+View(herb.obs.trans.Zone)
 
 #Count number of Transects sampled per Zone per year
 
 herb.trans.year<-herbs %>% dplyr::select(Island, year, Transect,  Zone) %>%
   group_by(Island, year, Zone) %>% 
   distinct() %>% 
-  tally(name= "Transects_Sampled")
+  tally(name= "Transects_Sampled") %>% pivot_wider( names_from= year, values_from = Transects_Sampled)
+
+View(herb.trans.year)
+
 
 #Count number of quads  sampled per transect, Zone per year
 
-herb.quads.year<-herbs %>% dplyr::select(Island, year, Transect,  Zone, Quadrat) %>%
+herb.quads.year<-herbs %>% dplyr::select(Island, year, Zone, Transect,Quadrat) %>%
   group_by(Island, year, Zone, Transect) %>% 
   distinct() %>% 
   tally(name= "Quads_Sampled")
 
-#Check for missing values in the observational data
+View(herb.quads.year)
 
-herbs.cov.NAs<-herbs[is.na(herbs$Pct_Cover),]
+
+
+##### #Check for missing values in the observational data (c0ver, Density, Pct_Cover)
+
+# Species with no 
+## there are apparently some species/cover classes that don't have cover values assigned to them.
+
+herbs[is.na(herbs$Pct_Cover),] %>% View()
+
+herbspecies.no.cover<-filter(herbs, is.na(Pct_Cover)) %>% select(Species) %>% distinct()  %>% as_tibble()
+  
+View(herbspecies.no.cover)
+
+write_csv(herbspecies.no.cover, "./data/checks/herbspeciesNoCover.csv")
+
+#### SHOULD WE DROP THESE SPECIES?
+# iF SO:
+#herbs<-drop_na(herbs,Pct_Cover) 
+
+
+
+### ### GENERATE LIST OF OBSERVED SPECIES codes ###### 
+
+herb.species<-herbs %>%  distinct(Species) %>% as_tibble() # generate list
+
+tally(distinct(herb.species,Species)) # 355 species observed!
+
+# import species list provided by Rachel Vincent: plant_lists_GRAP_THOM_FieldGiude.xlsx
+
+species_tlu <- read_excel("data/plant_lists_GRAP_THOM_FieldGiude.xlsx")
+tally(distinct(species_tlu,`BOHA Code`)) # 220 species in field guide
+
+#Return the list of observed species from the field guide
+
+Obs.Herbs<-semi_join(species_tlu,herb.species, by = c("BOHA Code"= "Species")) 
+
+# Show the list of observed species NOT in the field guide
+
+anti_join(species_tlu,herb.species, by = c("BOHA Code"= "Species")) 
+
+
+
+##### QUAD FREQUENCY
+
+### What are the most abundant species?
+#  DETERMINE THE FREQ EACH SPECIES HAS BEEN DETECTED EACH YEAR in each quadrat
+
+herb.species.QuadFreq <-herbs %>%  group_by(Island, Zone, year, Transect, Species) %>% tally() %>% 
+    left_join(herb.quads.year, by = c("Island", "Zone", "year", "Transect")) %>%   # ADD ON NUMBER OF QUADS SAMPLED PER YEAR (FROM ABOVE)
+    mutate(Quad_Freq = n/Quads_Sampled)
+
+#need to check potential duplicate records:
+
+herb.check.dups<-filter(herb.species.QuadFreq , Quad_Freq >1)
+
+write_csv(herb.check.dups, "./data/checks/herb.check.dups.csv")
+
+
+#Calculate avg quad frequency;
+
+herb.MeanSiteQuadFreq <-herbs %>%  group_by(Island, Zone, year, Transect, Species) %>% tally() %>% 
+  left_join(herb.quads.year, by = c("Island", "Zone", "year", "Transect")) %>%   # ADD ON NUMBER OF QUADS SAMPLED PER YEAR (FROM ABOVE)
+  mutate(Quad_Freq = n/Quads_Sampled) %>% 
+  group_by(Species) %>% 
+  summarise(MeanFreq = mean(Quad_Freq, na.rm= TRUE), Trans_Sampled= n(), sd= sd(Quad_Freq, na.rm= TRUE))
+
+
+top50<- filter(herb.MeanSiteQuadFreq, MeanFreq >= 0.50 | Trans_Sampled > 20) %>% pull(Species) 
 
 
 ########## SCRUBS ##########
