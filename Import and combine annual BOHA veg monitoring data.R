@@ -121,15 +121,14 @@ trees<-bind_rows(Thomp15$`TREE LAYER`,Thomp16$`TREE LAYER`,Thomp17$`TREE LAYER`,
 # 6/24/21: right now there are "-" and 0s in the Density column when Cover > 0. I asked Sahil/Rachel to clarify. I think the "-" should be NAs.
 
 
-
 ########## HERBS ########
 
 ## DATA CHECKS: FORMATTING, GROUPING LEVELS, and MISSING VALUES  ########
 
 # for testing df until above data are finalized:
 herbs<-bind_rows(Thomp16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), 
-                 Grape16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")))
-
+                 Grape15$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Grape16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),
+                 Grape19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")))
 #View(herbs)
 
 # inspect herbs object:
@@ -160,7 +159,10 @@ herbs <-herbs %>% mutate(year= year(Date), month= month(Date)) %>% # extract yea
                           Zone == "Wet" ~"Wetland",
                           Zone == "UP" ~"Upland",
                           Zone == "WET" ~ "Wetland",
-                          Zone == "C" ~ "Control")) # rename zones for consistency
+                          Zone == "C" ~ "Control",
+                          Zone == "Upland" ~ "Upland",
+                          Zone == "Control" ~ "Control",
+                          Zone == "Wetland" ~ "Wetland")) # rename zones for consistency
 
 
 
@@ -257,33 +259,48 @@ anti_join(species_tlu,herb.species, by = c("BOHA Code"= "Species"))
 ##### QUAD FREQUENCY
 
 ### What are the most abundant species?
-#  DETERMINE THE FREQ EACH SPECIES HAS BEEN DETECTED EACH YEAR in each quadrat
 
-herb.species.QuadFreq <-herbs %>%  group_by(Island, Zone, year, Transect, Species) %>% tally() %>% 
+#  DETERMINE THE FREQ EACH SPECIES HAS BEEN DETECTED EACH YEAR 
+
+herb.species.QuadFreq <-herbs %>%  group_by(Island, Zone, year, Transect, Species) %>% tally() %>% # count the number of species occurences
     left_join(herb.quads.year, by = c("Island", "Zone", "year", "Transect")) %>%   # ADD ON NUMBER OF QUADS SAMPLED PER YEAR (FROM ABOVE)
     mutate(Quad_Freq = n/Quads_Sampled)
 
 #need to check potential duplicate records:
 
-herb.check.dups<-filter(herb.species.QuadFreq , Quad_Freq >1)
+herb.check.dups<-filter(herb.species.QuadFreq , Quad_Freq >1) %>% drop_na() # there are many records with no species codes docuble recorded
 
 write_csv(herb.check.dups, "./data/checks/herb.check.dups.csv")
 
 
-#Calculate avg quad frequency;
+#Calculate avg quadrat frequency of each species:
+
+# Across all quads
 
 herb.MeanSiteQuadFreq <-herbs %>%  group_by(Island, Zone, year, Transect, Species) %>% tally() %>% 
   left_join(herb.quads.year, by = c("Island", "Zone", "year", "Transect")) %>%   # ADD ON NUMBER OF QUADS SAMPLED PER YEAR (FROM ABOVE)
   mutate(Quad_Freq = n/Quads_Sampled) %>% 
   group_by(Species) %>% 
-  summarise(MeanFreq = mean(Quad_Freq, na.rm= TRUE), Trans_Sampled= n(), sd= sd(Quad_Freq, na.rm= TRUE))
+  summarise(MeanFreq = mean(Quad_Freq, na.rm= TRUE), sdFreq= sd(Quad_Freq, na.rm= TRUE), Quads_Present= n())
 
+write_csv(herb.MeanSiteQuadFreq, "./data/checks/herb.MeanSiteQuadFreq.csv")
 
-top50<- filter(herb.MeanSiteQuadFreq, MeanFreq >= 0.50 | Trans_Sampled > 20) %>% pull(Species) 
+# By Zone
 
+herb.MeanQuadFreqZone <-herbs %>%  group_by(Island, Zone, year, Transect, Species) %>% tally() %>% # count the number of quads the species was detected in 
+  left_join(herb.quads.year, by = c("Island", "Zone", "year", "Transect")) %>%   # ADD ON NUMBER OF QUADS SAMPLED PER TRANSECT PER YEAR (FROM ABOVE)
+  mutate(Quad_Freq = n/Quads_Sampled) %>% 
+  group_by(Zone, Species) %>% 
+  summarise(MeanFreq = mean(Quad_Freq, na.rm= TRUE), sdFreq= sd(Quad_Freq, na.rm= TRUE), Quads_Present= n()) %>%  # cALCULATE SUMMARY STATS OF MEAN SPECIES QUAD FREQ
+  drop_na()
 
 ########## SCRUBS ##########
 ############################
+
+scrubs<-bind_rows(Thomp16$`SCRUB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp18$`SCRUB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp19$`SCRUB LAYER` %>%  dplyr::select(-starts_with("Note")), 
+                 Grape16$`SCRUB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape18$`SCRUB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape19$`SCRUB LAYER` %>%  dplyr::select(-starts_with("Note")))
+
+View(scrubs)
 
 ########## TREES ##########
 ###########################
