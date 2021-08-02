@@ -165,8 +165,10 @@ herbs <-herbs %>% mutate(year= year(Date), month= month(Date)) %>% # extract yea
                           Zone == "C" ~ "Control",
                           Zone == "Upland" ~ "Upland",
                           Zone == "Control" ~ "Control",
-                          Zone == "Wetland" ~ "Wetland")) # rename zones for consistency
-
+                          Zone == "Wetland" ~ "Wetland")) %>%  # rename zones for consistency
+  filter(!Quadrat %in% 0 ) %>% # remove quadrats labeled 0 which denote an entry of a transect note and not obs
+  filter(!Species %in% "****" ) # remove records used for note taking
+  
 
 
 # check the levels or values of a few fields
@@ -192,17 +194,17 @@ kable(herbs[is.na(herbs$Island),], caption = "Records with missing values in the
 # Species with NA
 ## there are apparently some species/cover classes that don't have cover values assigned to them.
 
-#kable(herbs[is.na(herbs$Pct_Cover),])
-
-herbspecies.no.cover<-filter(herbs, is.na(Pct_Cover)) %>% select(Species) %>% distinct()  %>% as_tibble()
-  
-kable(herbspecies.no.cover, caption = "Species Codes without percent cover values")
+kable(herbs[is.na(herbs$Cover),], caption = "Records without cover class data")
 
 #### SHOULD WE DROP THESE SPECIES?
 
 #These species will be removed from an analysis of cover but included in the an analysis of quad freq. 
 
 write_csv(filter(herbs, is.na(Pct_Cover)), "./data/checks/herbspeciesNoCover.csv")
+
+# There are entries in the data without species codes
+
+kable(herbs[is.na(herbs$Species),], caption ="Records without species codes but with cover data")
 
 ```
 
@@ -331,7 +333,7 @@ herb.MeanTransFreqZone <-herbs %>%  group_by(Island, Zone, year, Transect, Speci
   arrange(desc(MeanTransFreq)) %>% filter(Quads_Present > 20) %>% 
   pivot_wider(id_cols= Species,names_from = Zone, values_from = MeanTransFreq)
 
-kable(herb.MeanTransFreqZone[1:20,], caption =" 20 most commonly detected species (Avg transect freq in a minimum of 20 quads across study")
+kable(herb.MeanTransFreqZone[1:35,], caption =" 35 most commonly detected species (Avg transect freq in a minimum of 20 quads across study")
 
 
 ```
