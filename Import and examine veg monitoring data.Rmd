@@ -39,20 +39,20 @@ Thomp18<-path %>%
   map(read_excel, path = path)
 
 # Thompson 2017
-# path<-"./data/Thompson2017.xlsx" 
-# 
-# Thomp17<-path %>%
-#   excel_sheets() %>%
-#   purrr::set_names() %>%
-#   map(read_excel, path = path)
+path<-"./data/Thompson2017.xlsx"
+
+Thomp17<-path %>%
+  excel_sheets() %>%
+  purrr::set_names() %>%
+  map(read_excel, path = path)
 
 # # Thompson 2016
-# path<-"./data/Thompson2016.xlsx" 
-# 
-# Thomp16<-path %>%
-#   excel_sheets() %>%
-#   purrr::set_names() %>%
-#   map(read_excel, path = path)
+path<-"./data/Thompson2016.xlsx"
+
+Thomp16<-path %>%
+  excel_sheets() %>%
+  purrr::set_names() %>%
+  map(read_excel, path = path)
 
 # Thompson 2015
 path<-"./data/Thompson2015.xlsx"
@@ -105,39 +105,23 @@ Grape15<-path %>%
   purrr::set_names() %>%
   map(read_excel, path = path)
 
-str(Grape15)
+str(Thomp15)
 ```
 
-# Create combined dataset per veg layer
+# Herb Layer
+## Data Checks: combine  data, grouping variables, missing values, and sampling events
 
-```{r combine, eval = FALSE, echo= FALSE}
+```{r herbchecks, echo=TRUE}
+
+# Clean up column values (Island and Zone) and Derive new variables from the data set: year, month, Pct_Cover
+
 ### Extract annual data from layer sampling and  combine annual data per subprotocol (e.e.g, herb layer) ----
 
 
 # Extract layer data per year/island and combine into one DF. Also currently removes the notes fields for easier binding (1 or more years without NOtes w/ ID field)
 
-herbs<-bind_rows(Thomp15$`HERB LAYER` %>%  dplyr::select(-starts_with("Note"), -First_point_cm), Thomp16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), 
-                 Grape16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")))
+herbs<-bind_rows(Thomp15$`HERB LAYER` %>%  dplyr::select(-starts_with("Note"), -First_point_cm), Thomp16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp17$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Thomp18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Grape15$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Grape17$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Grape19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")))
 
-
-scrubs<-bind_rows(Thomp15$`SCRUB LAYER`,Thomp16$`SCRUB LAYER`,Thomp17$`SCRUB LAYER`,Thomp18$`SCRUB LAYER`,Thomp19$`SCRUB LAYER`,Grape15$`SCRUB LAYER`,Grape16$`SCRUB LAYER`,Grape17$`SCRUB LAYER`,Grape18$`SCRUB LAYER`,Grape19$`SCRUB LAYER`)
-
-
-trees<-bind_rows(Thomp15$`TREE LAYER`,Thomp16$`TREE LAYER`,Thomp17$`TREE LAYER`,Thomp18$`TREE LAYER`,Thomp19$`TREE LAYER`,
-                 Grape15$`TREE LAYER`,Grape16$`TREE LAYER`,Grape17$`TREE LAYER`,Grape18$`TREE LAYER`,Grape19$`TREE LAYER`)
-```
-
-# Herb Layer
-## Data Checks: grouping variables, missing values, and sampling events
-
-```{r herbchecks, echo=TRUE}
-# data for testing df until above data are finalized:
-herbs<-bind_rows(Thomp18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")),Thomp19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Grape15$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Grape16$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Grape17$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Grape18$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")), Grape19$`HERB LAYER` %>%  dplyr::select(-starts_with("Note")))
-
-# inspect herbs object:
-glimpse(herbs)
-
-# Clean up column values (Island and Zone) and Derive new variables from the data set: year, month, Pct_Cover
 
 herbs <-herbs %>% mutate(year= year(Date), month= month(Date)) %>% # extract year and month for later filtering/modelling
   mutate(Pct_Cover = case_when( 
@@ -234,6 +218,8 @@ herb.obs.trans.Zone<-herbs %>% dplyr::select(Island, Transect, Zone, year) %>%
   distinct() %>% arrange(desc(-year)) %>% pivot_wider( names_from= year, values_from= year) %>% arrange(Island, Transect)
 
 kable(herb.obs.trans.Zone, caption = "Transects sampled each year. NA indicates missing data.")
+
+write_csv(herb.obs.trans.Zone,"./data/checks/herb.transects.year.csv")
 
 ```
 
@@ -344,6 +330,8 @@ kable(TopSpecies[,1:4], caption ="List of Species of interest")
 
 Quadrat frequency:  the percentage of quadrats per transect containing at least one species; tracks the local establishment and expansion of a species within a transect.
 
+The following code is used to calculate the mean proportion of quadrat occupied per transect for each island, zone and year. Species occupancy is calculated first at the transect level (# quads present /total quads sampled) and then averaged across transects for a zone-scale average.
+
 #### Data checks: Species occurence
 ```{r, herbQuadCheck}
 
@@ -362,9 +350,9 @@ herb.species.TransFreq <-herbs %>%  group_by(Island, Zone, year, Transect, Speci
     left_join(herb.quads.year, by = c("Island", "Zone", "year", "Transect")) %>%   # ADD ON NUMBER OF QUADS SAMPLED PER YEAR (FROM ABOVE)
     mutate(Trans_Freq = Quad_Present/Quads_Sampled) # calc the proportion of quads within a transect containing that species
 
-#need to check potential duplicate records:
+#Check potential double entry of Species Codes per quadrat:
 
-herb.check.dups<-filter(herb.species.TransFreq , Trans_Freq >1) %>% drop_na() # there are many records with no species codes double recorded
+herb.check.dups<-herbs %>%  group_by(Island, Zone, year, Transect, Quadrat, Species) %>% tally(name ="Detected") %>% filter(Detected >1)
 
 kable(herb.check.dups, caption =" List of records where species was entered >1 in same quadrat. Will need to search data to determine which quadrats ")
 
@@ -399,7 +387,7 @@ kable(herb.MeanTransFreqZone[1:35,], caption =" 35 most commonly detected specie
 
 ```
 
-#### Quad frequency calc
+#### Calculate Mean Quad frequency
 
 Calculate the proportion of quads each species has been detected per Zone and island
 ```{r herbfreq}
@@ -416,47 +404,134 @@ herb.quads.year<-herbs %>% dplyr::select(Island, year, Zone, Transect,Quadrat) %
 herbsSpecies<-herbs %>% left_join(TopSpecies[,1:4],.,by = "Species")  #bind sci names and extract data of interest
 
 # Complete data frame of the transect sampling by island/zone and calc Quad freq per Zone
+# i.e. add 0 for species not observed in certain quads
 
-herb.QuadFreqTrans<-herbsSpecies %>% group_by(Island, Zone, year, Transect, `USDA Plants Code`) %>% tally(name = "Quads_Present") %>% ungroup() %>% 
+herb.quadfreq<-herbsSpecies %>% group_by(Island, Zone, year, Transect, `USDA Plants Code`) %>% tally(name = "Quads_Present") %>% ungroup() %>% 
     complete(`USDA Plants Code`, nesting(Island, Zone, Transect, year), fill = list(Quads_Present = 0)) %>%  # create 0 records for each species when it was not observed for each transect island combo
-  left_join(herb.quads.year, by = c("Island", "Zone", "Transect","year")) %>%   # add the specific no. of quads sampled each year per transect
-mutate(PropQuadsPerTrans = Quads_Present/Quads_Sampled) %>%   # calc the proportion of quads within a transect containing each species
+  drop_na() %>% # for some reason the above code is creating NS records, this drops them and doesn't seem to effect design
+  left_join(herb.quads.year, by = c("Island", "Zone", "Transect","year"))# add the specific no. of quads sampled each year per transect
+
+# check to ensure consistent quad sampling by species
+
+transcheck<-herb.quadfreq %>% select(`USDA Plants Code`, Island, year, Zone, Transect) %>% 
+  group_by(`USDA Plants Code`, Island,  Zone, year ) %>% 
+  distinct() %>% 
+  tally(name= "Trans_Sampled") %>% pivot_wider(names_from = year, values_from = Trans_Sampled) %>% arrange( Island, Zone, `USDA Plants Code`)
+
+kable(transcheck, caption =" No. of transects sampled per species")
+
+quadcheck<-herb.quadfreq %>% select(`USDA Plants Code`, Island, year, Zone, Quads_Sampled) %>% 
+  group_by(`USDA Plants Code`, Island,  Zone, year ) %>% 
+  summarise(Quads_Sampled = sum(Quads_Sampled)) %>% 
+  pivot_wider(names_from = year, values_from = Quads_Sampled) %>% arrange( Island, Zone, `USDA Plants Code`)
+
+
+kable(quadcheck, caption =" No. of quads sampled per species")
+
+
+# calculate avg proportion of quads per transects in each year by species
+
+ herbs.AvgQuadFreq<- herb.quadfreq %>% 
+ mutate(PropQuadsPerTrans = Quads_Present/Quads_Sampled) %>%   # calc the proportion of quads within a transect containing each species
 group_by( `USDA Plants Code`,Island, Zone, year) %>%  
-  summarise(MeanPropPerZone = mean(PropQuadsPerTrans, na.rm = TRUE), SDPropZone = sd(PropQuadsPerTrans, na.rm = TRUE), Transects = n()) %>% 
+  summarise(MeanPropPerZone = mean(PropQuadsPerTrans, na.rm = TRUE), SDPropZone = sd(PropQuadsPerTrans, na.rm = TRUE), `Transects Sampled` = n(), SEPropZone= sd(PropQuadsPerTrans, na.rm = TRUE)/sqrt(n()) ) %>% 
 left_join(distinct(dplyr::select(TopSpecies, `USDA Plants Code`, `Scientific name`, `Common Name`, Origin)),by = "USDA Plants Code")
 
+ write_csv(herbs.AvgQuadFreq,"./data/HerbFreqPerZone.csv")
+ 
 ```
 
-#### Plot Quad frequency
+### Plot Quad frequency
 
 ```{r plot_herb_Freq}
 
-species<-"CEOR7"
-data<-dplyr::filter(herb.QuadFreqTrans, `USDA Plants Code` %in% species) 
+species<-"ROMU"
+plotdata<-dplyr::filter(herbs.AvgQuadFreq, `USDA Plants Code` %in% species) 
 
-ggplot(data , aes(x= year, y = MeanPropPerZone, colour= Zone)) + geom_point() +geom_line()+
+ggplot(plotdata , aes(x= year, y = MeanPropPerZone, colour= Zone)) + geom_point() +geom_line()+
+  geom_errorbar(aes(ymin= MeanPropPerZone-SEPropZone, ymax = MeanPropPerZone+SEPropZone, colour= Zone))+
   #scale_color_viridis_d()
   facet_wrap(~Island)+
   theme_classic()+
-  labs(title = paste(data$`Common Name`[data$`USDA Plants Code` %in% species]), y= "Mean proportion of quadrats", x="Year")
+  labs(title = paste(plotdata$`Common Name`[plotdata$`USDA Plants Code` %in% species]), y= "Mean proportion of quadrats +- SE", x="Year")
+
+kable(plotdata, caption = "Plotted herb quad fre. data")
+
+
 
 ```
 
+### Cover (abundance)
+
+#### Create dataframe for calculating cover and check sampling per species
+
+The following code is used to calculate the mean cover per species for each island, zone and year. Cover is averaged first at the transect level and then across transects for a zone-scale average.
+
+``` {r, herbCovercheck}
+#bind sci names and extract data of interest
+herbsSpecies<-herbs %>% left_join(TopSpecies[,1:4],.,by = "Species")  
+
+# add in 0 records for each species not observed within transect-quad island combos
+
+herb.Cover<-herbsSpecies %>% 
+  select(`USDA Plants Code`, Island, Zone, year, Transect, Quadrat, Pct_Cover) %>%
+   complete(`USDA Plants Code`, nesting(Island, Zone, Transect, Quadrat, year), fill = list(Pct_Cover = 0)) %>%  
+  drop_na() 
 
 
-### Mean cover 
+# check to ensure consistent quad sampling by species
 
-```{r, herbcover}
-# count the number of quads sampled per transect in each year
+transcheck<-herb.Cover %>% select(`USDA Plants Code`, Island, year, Zone, Transect) %>%
+  group_by(`USDA Plants Code`, Island,  Zone, year ) %>%
+  distinct() %>%
+  tally(name= "Trans_Sampled") %>% pivot_wider(names_from = year, values_from = Trans_Sampled) %>% arrange( Island, Zone, `USDA Plants Code`)
 
-herb.quads.year<-herbs %>% 
-  dplyr::filter(!Species %in% "****") %>% 
-  dplyr::select(Island, year, Zone, Transect,Quadrat) %>%
-  group_by(Island, year, Zone, Transect) %>% 
-  distinct() %>% 
-  tally(name= "Quads_Sampled")
+kable(transcheck, caption =" No. of transects sampled per species")
 
-#IN PROGRESS, NEED TO CLEAN UP SPECIES CODES AND MORE INFO NEEDED ON QUAD SMAPLING 
+quadcheck<-herb.Cover%>% select(`USDA Plants Code`, Island, year, Zone, Transect) %>%
+  group_by(`USDA Plants Code`, Island,  Zone, year, Transect ) %>%
+  tally(name = "Quads_Sampled") %>%
+  pivot_wider(names_from = year, values_from = Quads_Sampled) %>% arrange( Island, Zone, `USDA Plants Code`)
+
+
+kable(quadcheck, caption =" No. of quads sampled per species. All quads should be 20 sampled with a few transects with only 19 sampled quads.")
+
+```
+
+#### Calculate avg cover 
+
+```{r herbCoverCalc}
+
+# calculate the mean cover of each species overtime at the Zone scale
+
+ herbs.AvgCover<- herb.Cover %>% # use completed data set from above
+   group_by( `USDA Plants Code`, Island, Zone, year, Transect) %>% # summarize data by the denoted columns
+   summarise(MeanCover = mean(Pct_Cover, na.rm=TRUE), SDCover = sd(Pct_Cover, na.rm=TRUE), Quads_Sampled=n()) %>%   # calc the mean cover per transect for each species
+group_by( `USDA Plants Code`,Island, Zone, year) %>% # now summarize data by Zone for each year
+  summarise(MeanCoverPerZone = mean(MeanCover, na.rm = TRUE), SDCoverZone = sd(MeanCover, na.rm = TRUE), `Transects Sampled` = n(), SECoverPerZone = sd(MeanCover, na.rm = TRUE)/sqrt(n()) ) %>%
+left_join(distinct(dplyr::select(TopSpecies, `USDA Plants Code`, `Scientific name`, `Common Name`, Origin)),by = "USDA Plants Code")
+
+   write_csv(herbs.AvgCover,"./data/HerbCoverPerZone.csv") 
+   
+```
+
+### Plot Mean Cover
+
+```{r plot_herb_Cover}
+
+species<-"CEOR7"
+plotdata<-dplyr::filter(herbs.AvgCover, `USDA Plants Code` %in% species) 
+
+ggplot(plotdata , aes(x= year, y = MeanCoverPerZone, colour= Zone)) + geom_point() +geom_line()+
+  geom_errorbar(aes(ymin= MeanCoverPerZone-SECoverPerZone, ymax = MeanCoverPerZone+SECoverPerZone, colour= Zone))+
+  #scale_color_viridis_d()
+  facet_wrap(~Island)+
+  theme_classic()+
+  labs(title = paste(plotdata$`Common Name`[plotdata$`USDA Plants Code` %in% species]), y= "Mean cover (%) +- SE", x="Year")
+
+kable(plotdata, caption = "Plotted herb quad fre. data")
+
+
 
 ```
 
