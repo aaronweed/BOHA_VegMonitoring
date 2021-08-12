@@ -17,6 +17,7 @@ library(magrittr)
 library(lubridate)
 library(readxl)
 library(knitr)
+library(ggpubr)
 
 #### import data sets and save as lists to working directory----
 
@@ -326,7 +327,7 @@ write_csv(sppCheck,"./data/checks/SpeciesCodesNotMatched.csv")
 kable(TopSpecies[,1:4], caption ="List of Species of interest")
 ```
 
-### Quadrat frequency of each species:
+### <b> Quadrat frequency </b>
 
 Quadrat frequency:  the percentage of quadrats per transect containing at least one species; tracks the local establishment and expansion of a species within a transect.
 
@@ -443,25 +444,49 @@ left_join(distinct(dplyr::select(TopSpecies, `USDA Plants Code`, `Scientific nam
 
 ### Plot Quad frequency
 
-```{r plot_herb_Freq}
+```{r plot_herb_Freq, comment= FALSE, echo=FALSE, message=FALSE}
 
-species<-"ROMU"
-plotdata<-dplyr::filter(herbs.AvgQuadFreq, `USDA Plants Code` %in% species) 
 
-ggplot(plotdata , aes(x= year, y = MeanPropPerZone, colour= Zone)) + geom_point() +geom_line()+
+species<-unique(TopSpecies$`USDA Plants Code`)
+
+freq_plot = function(df, species) {
+  
+  plotdata<-dplyr::filter(df, `USDA Plants Code` %in% species) %>% droplevels()
+
+  ggplot(plotdata , aes(x= year, y = MeanPropPerZone, colour= Zone)) + geom_point() +geom_line()+
   geom_errorbar(aes(ymin= MeanPropPerZone-SEPropZone, ymax = MeanPropPerZone+SEPropZone, colour= Zone))+
   #scale_color_viridis_d()
+  scale_x_continuous(breaks= seq(2015,2019,2))+
   facet_wrap(~Island)+
   theme_classic()+
-  labs(title = paste(plotdata$`Common Name`[plotdata$`USDA Plants Code` %in% species]), y= "Mean proportion of quadrats +- SE", x="Year")
+  labs(title = paste(plotdata$`Common Name`[plotdata$`USDA Plants Code` %in% species], " - ", plotdata$Origin[plotdata$`USDA Plants Code` %in% species]), y= "Mean proportion of quadrats +- SE", x="Year")
+  
+}
 
-kable(plotdata, caption = "Plotted herb quad fre. data")
+Freq_plots = map(.x= species, ~freq_plot(herbs.AvgQuadFreq, .x))
 
+freq_plots<-ggpubr::ggarrange(plotlist =Freq_plots, nrow=1, ncol =1, align = "hv", common.legend = TRUE, label.x = "", label.y = )
+
+print(freq_plots)
+
+ggpubr::ggexport(plotlist = freq_plots, filename = "BOHA_FreqPlots.pdf")
 
 
 ```
 
-### Cover (abundance)
+
+### Table of Mean Freq values
+
+```{r herbFreqtable}
+
+# The data table of avg freq
+
+kable(herbs.AvgQuadFreq, caption = "Plotted herb quad freq. data")
+
+```
+
+
+### <b> Cover (abundance) </b>
 
 #### Create dataframe for calculating cover and check sampling per species
 
@@ -517,21 +542,40 @@ left_join(distinct(dplyr::select(TopSpecies, `USDA Plants Code`, `Scientific nam
 
 ### Plot Mean Cover
 
-```{r plot_herb_Cover}
+```{r plot_herb_Cover, comment = FALSE, echo= FALSE, message=FALSE}
 
-species<-"CEOR7"
-plotdata<-dplyr::filter(herbs.AvgCover, `USDA Plants Code` %in% species) 
+species<-unique(TopSpecies$`USDA Plants Code`)
 
-ggplot(plotdata , aes(x= year, y = MeanCoverPerZone, colour= Zone)) + geom_point() +geom_line()+
+cover_plot = function(df, species) {
+  
+  plotdata<-dplyr::filter(df, `USDA Plants Code` %in% species) %>% droplevels()
+
+  ggplot(plotdata, aes(x= year, y = MeanCoverPerZone, colour= Zone)) + geom_point() +geom_line()+
   geom_errorbar(aes(ymin= MeanCoverPerZone-SECoverPerZone, ymax = MeanCoverPerZone+SECoverPerZone, colour= Zone))+
-  #scale_color_viridis_d()
+  scale_x_continuous(breaks= seq(2015,2019,2))+
   facet_wrap(~Island)+
   theme_classic()+
-  labs(title = paste(plotdata$`Common Name`[plotdata$`USDA Plants Code` %in% species]), y= "Mean cover (%) +- SE", x="Year")
+  labs(title = paste(plotdata$`Common Name`[plotdata$`USDA Plants Code` %in% species], " - ", plotdata$Origin[plotdata$`USDA Plants Code` %in% species]), y= "Mean cover (%) +- SE", x="Year")
+}
 
-kable(plotdata, caption = "Plotted herb quad fre. data")
+Cover_plots = map(.x= species, ~cover_plot(herbs.AvgCover, .x))
+
+coverplots<-ggpubr::ggarrange(plotlist =Cover_plots, nrow=1, ncol =1, align = "hv", common.legend = TRUE)
 
 
+print(coverplots)
+
+ggpubr::ggexport(plotlist = coverplots, filename = "BOHA_CoverPlots.pdf")
+
+```
+
+### Table of Mean Cover values
+
+```{r herbCovertable}
+
+# The data table of avg cover
+
+kable(herbs.AvgCover, caption = "Plotted herb cover data")
 
 ```
 
