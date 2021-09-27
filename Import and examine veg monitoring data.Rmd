@@ -151,19 +151,32 @@ herbs <-herbs %>% mutate(year= year(Date), month= month(Date)) %>% # extract yea
                           Zone == "Upland" ~ "Upland",
                           Zone == "Control" ~ "Control",
                           Zone == "Wetland" ~ "Wetland")) %>%  # rename zones for consistency
+  # handle duplicate transect sampling on Grape in 2017 in two Control transects (GC 58 and 59)
+  mutate(Transect = case_when(Transect == "GC58.1" ~ "GC58",
+                              Transect == "GC58.2" ~ "GC58",
+                              Transect == "GC59.1" ~ "GC59",
+                              Transect == "GC59.2" ~ "GC59",
+                              TRUE ~ as.character(Transect))) %>% # double sampled GC transects in 2017 will be considered as separate observations of cover because diff quadrats were sampled.
   filter(!Quadrat %in% 0 ) %>% # remove quadrats labeled 0 which denote an entry of a transect note and not obs
   filter(!Species %in% "****" ) %>% # remove records created for note taking
-  filter(!Species %in% "-" )
+  filter(!Species %in% "-" ) %>%  # remove records when species code not recorded
+  drop_na(Species) %>% # remove records of missing species codes 
+  drop_na(Cover, Pct_Cover) %>%  # remove records with missing cover 
+  group_by(Date, Observer, Island, Zone, year, Transect , Quadrat, Species) %>%  # Avg cover for species occasionally double sampled
+  summarise(Cover = mean(Cover, na.rm = TRUE), Pct_Cover = mean(Pct_Cover, na.rm =TRUE),) %>% ungroup()
 
+
+ 
 
 
 # check the levels or values of a few fields
 
 unique(herbs$Island)# unique values of island
 unique(herbs$Zone)
+unique(herbs$year)
 
-
-kable(herbs[1:51,])
+str(herbs)
+kable(herbs[1:10,])
 ```
 
 ### Check for missing values
@@ -204,7 +217,7 @@ kable(herbs[is.na(herbs$Species),], caption ="Records without species codes but 
 
 #Count number of Transects sampled per Zone per year
 
-herb.trans.year<-herbs %>% dplyr::select(Island, year, Transect,  Zone) %>%
+herb.trans.year<-herbs %>% dplyr::select(Island, year, Transect,  Zone) %>% 
   group_by(Island, year, Zone) %>% 
   distinct() %>% 
   tally(name= "Transects_Sampled") %>% pivot_wider( names_from= year, values_from = Transects_Sampled)
@@ -243,46 +256,6 @@ kable(herb.quads.year, caption= "Number of quadrats sampled per transect in each
 
 write_csv(herb.quads.year,"./data/checks/herb.quads.year.csv")
 ```
-
-
-### Check duplicate transect sampling in Grape 2017
-
-In 2017 transects GC 58 and 59 were sampled twice using different quads
-
-```{r, GC58_59}
-
-trans58<-filter(herbs, Transect %in% c("GC58.1", "GC58.2")) %>% group_by(Transect, Species) %>% 
-  summarise(MeanCover = mean(Pct_Cover, na.rm= TRUE)) %>% 
-  pivot_wider(names_from = Transect, values_from=MeanCover) %>% 
-  mutate(mean = rowMeans(.[,2:3]))
-  
-  
-
-kable(trans58, caption ="Mean cover by Species for duplicate transect GC58")
-
-
-trans59<-filter(herbs, Transect %in% c("GC59.1", "GC59.2")) %>% group_by(Transect, Species) %>% 
-  summarise(MeanCover = mean(Pct_Cover, na.rm= TRUE)) %>% 
-  pivot_wider(names_from = Transect, values_from=MeanCover)%>% 
-  mutate(mean = rowMeans(.[,2:3]))
-
-
-kable(trans59, caption ="Mean cover by Species for duplicate transect GC59")
-
-# rename  transects sampled > 1 per year in herbs object to combine and avg transect data
-
-herbs<-herbs %>% 
- mutate(Transect = case_when(Transect == "GC58.1" ~ "GC58",# in 20-17 there are two transects sample twice, renaming to main transect name to avg cover
-                              Transect == "GC58.2" ~ "GC58",
-                              Transect == "GC59.1" ~ "GC59",
-                              Transect == "GC59.2" ~ "GC59",
-                              TRUE ~ as.character(Transect)))
- 
- 
-```
-
-
-
 
 ### Generate list of observed species codes
 
@@ -430,7 +403,8 @@ quadcheck<-herb.quadfreq %>% select(`USDA Plants Code`, Island, year, Zone, Quad
 kable(quadcheck, caption =" No. of quads sampled per species")
 
 
-# calculate avg proportion of quads per transects in each year by species
+# calculate avg proportion of quads per transect in each year by species
+# Note that the below calculation for transects GC 58 and 59, which were sampled twice in 2017, is fine when leaving all quad data (40 as opposed to 20 quads sampled) because the per transect avg freq is the same as if averaging over transect before this step.
 
  herbs.AvgQuadFreq<- herb.quadfreq %>% 
  mutate(PropQuadsPerTrans = Quads_Present/Quads_Sampled) %>%   # calc the proportion of quads within a transect containing each species
